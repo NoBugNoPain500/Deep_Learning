@@ -1,0 +1,7 @@
+scikit-learn
+pandas
+matplotlib
+seaborn
+gradio
+pytorch-grad-cam
+opencv-python-headless
