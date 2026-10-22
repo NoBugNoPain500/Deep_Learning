@@ -61,5 +61,10 @@ def create_demo(checkpoint: str | Path) -> gr.Interface:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--ckpt", required=True)
+    parser.add_argument(
+        "--share",
+        action="store_true",
+        help="Tao public Gradio URL, can thiet khi chay tren Google Colab.",
+    )
     args = parser.parse_args()
-    create_demo(args.ckpt).launch()
+    create_demo(args.ckpt).launch(share=args.share)

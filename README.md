@@ -22,7 +22,8 @@ Mo hinh chinh la ResNet50 pretrained ImageNet, thay lop phan loai cuoi bang `Lin
 
 - Python >= 3.10.
 - Local: dung cho test, smoke test va phan tich nhe. Khong train toan bo dataset tren CPU yeu.
-- Kaggle: dung GPU P100/T4 de train that.
+- Google Colab: moi truong chinh de train that bang GPU, luu dataset va artifacts tren Google Drive.
+- Kaggle: van duoc ho tro neu can chay thay cho Colab.
 
 ## Cau truc thu muc
 
@@ -31,6 +32,7 @@ Deep_Learning/
 ├── AGENT_GUIDE_ResNet50_FairFace_Code.md  # Dac ta ky thuat goc
 ├── README.md
 ├── requirements.txt                        # Dependency local
+├── requirements-colab.txt                  # Dependency bo sung tren Google Colab
 ├── requirements-kaggle.txt                 # Dependency bo sung tren Kaggle
 ├── .gitignore
 ├── dataset/                                # Du lieu local, khong commit
@@ -100,6 +102,36 @@ dataset/fairface-img-margin025-trainval/train/1.jpg
 ```
 
 CSV bat buoc co cac cot `file`, `age`, `gender`, `race`. Gia tri `gender` phai la `Male` hoac `Female`. Mapping co dinh la `Male=0`, `Female=1`.
+
+## Chay tren Google Colab
+
+Quy trinh day du nam trong [COLAB_SETUP.md](COLAB_SETUP.md). Tom tat:
+
+```python
+from google.colab import drive
+drive.mount("/content/drive")
+%cd /content
+!git clone <REPOSITORY_URL> DeepLearning
+%cd /content/DeepLearning
+!pip install -q -r requirements-colab.txt
+!nvidia-smi
+!python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
+
+Train va luu ket qua tren Drive de khong mat khi runtime reset:
+
+```python
+!python -m src.train --exp e1_main \
+	--data-dir /content/drive/MyDrive/fairface \
+	--split-dir /content/drive/MyDrive/fairface-artifacts/splits \
+	--out-dir /content/drive/MyDrive/fairface-artifacts
+!python -m src.evaluate --exp e1_main --split val \
+	--data-dir /content/drive/MyDrive/fairface \
+	--split-dir /content/drive/MyDrive/fairface-artifacts/splits \
+	--out-dir /content/drive/MyDrive/fairface-artifacts
+```
+
+Sau khi chon checkpoint bang validation, chay test voi cung ba duong dan va them `--split test`. `requirements-colab.txt` khong cai lai PyTorch de giu CUDA runtime cua Colab. Co the dung `--share` khi chay demo Gradio.
 
 ## Smoke test local
 
@@ -230,6 +262,14 @@ Sau khi co checkpoint:
 
 ```bash
 python app/demo.py --ckpt artifacts/e1_main/best.pth
+```
+
+Tren Colab, dung checkpoint tren Drive va them `--share` de nhan public Gradio URL:
+
+```python
+!python app/demo.py \
+	--ckpt /content/drive/MyDrive/fairface-artifacts/e1_main/best.pth \
+	--share
 ```
 
 Demo chay CPU, preprocess anh theo cung transform validation, thu phat hien khuon mat bang OpenCV Haar va dung anh goc neu khong phat hien duoc mat. Ket qua chi co y nghia hoc thuat.

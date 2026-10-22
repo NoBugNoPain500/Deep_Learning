@@ -1,7 +1,7 @@
 # AGENT GUIDE – Viết code cho dự án ResNet50 phân lớp giới tính (FairFace)
 
 > Tài liệu dành cho **AI coding agent** (Claude Code, Cursor, Copilot Agent…). Có thể đổi tên thành `AGENTS.md` hoặc `CLAUDE.md` ở gốc repo.
-> Đi kèm file `HUONG_DAN_ResNet50_FairFace_Local_vs_Kaggle.md` (phân chia Local/Kaggle). Nếu hai file mâu thuẫn, file này quyết định về **code**, file kia quyết định về **quy trình chạy**.
+> Quy trình chạy Google Colab nằm trong `COLAB_SETUP.md`. Nếu tài liệu mâu thuẫn, file này quyết định về **code**, `COLAB_SETUP.md` quyết định về **quy trình chạy**.
 
 ## Prompt mở đầu (dán cho agent)
 
@@ -26,13 +26,14 @@ Máy này yếu, không có GPU: tuyệt đối không chạy huấn luyện th�
 | Môi trường | Tài nguyên | Agent được phép |
 | --- | --- | --- |
 | **Local** | CPU yếu, **không GPU** | Viết code, chạy unit test và **smoke test ≤ 64 ảnh**, chạy demo 1 ảnh, vẽ biểu đồ từ CSV/JSON |
-| **Kaggle** (người dùng tự chạy) | GPU P100/T4, 4 CPU | Agent **không chạy được**; chỉ viết code + notebook mỏng để người dùng chạy |
+| **Google Colab** (người dùng tự chạy) | GPU T4/L4/A100 tùy runtime, Google Drive | Agent **không chạy được**; chỉ viết code + notebook mỏng để người dùng chạy |
+| **Kaggle** (tùy chọn) | GPU P100/T4, 4 CPU | Agent **không chạy được**; chỉ viết code + notebook mỏng để người dùng chạy |
 
 Quy tắc cứng:
 
 1. **Không** chạy train/eval toàn bộ dữ liệu ở local. Mọi lệnh chạy ở local phải có `--smoke` hoặc dùng dữ liệu giả của test.
 2. **Không** quét toàn bộ ~97 nghìn ảnh ở local (hash, thống kê kích thước…). Script quét toàn bộ phải có `--limit N` để test local, chạy đủ trên Kaggle.
-3. Code phải **chạy được ở cả hai nơi mà không sửa tay**: đường dẫn lấy từ `src/config.py` (tự nhận biết `/kaggle/input`).
+3. Code phải **chạy được trên local, Colab và Kaggle mà không sửa tay**: đường dẫn có default theo runtime và có thể override bằng CLI.
 4. **Không** dùng tập test để chọn siêu tham số, early stopping hay chọn checkpoint. Chỉ dùng val.
 5. **Không** gọi mạng khi `import`. Việc tải trọng số chỉ xảy ra trong `build_model`, và phải có đường lùi `weights_path` cho Kaggle khi tắt Internet.
 6. **Không** commit dữ liệu, checkpoint, thư mục `artifacts/`, `data/` (thêm vào `.gitignore`).

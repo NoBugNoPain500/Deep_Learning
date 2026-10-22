@@ -3,11 +3,33 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 ON_KAGGLE = Path("/kaggle/input").exists()
+ON_COLAB = bool(os.environ.get("COLAB_RELEASE_TAG"))
 KAGGLE_DATA_DIR = Path("/kaggle/input/fairface")
-DATA_DIR = KAGGLE_DATA_DIR if ON_KAGGLE else ROOT_DIR / "dataset"
-OUT_DIR = Path("/kaggle/working") if ON_KAGGLE else ROOT_DIR / "artifacts"
-SPLIT_DIR = OUT_DIR / "splits" if ON_KAGGLE else ROOT_DIR / "splits"
-NUM_WORKERS = (os.cpu_count() or 1) if ON_KAGGLE else 0
+COLAB_DATA_DIR = Path("/content/drive/MyDrive/fairface")
+COLAB_OUT_DIR = Path("/content/drive/MyDrive/fairface-artifacts")
+DEFAULT_DATA_DIR = (
+    KAGGLE_DATA_DIR
+    if ON_KAGGLE
+    else COLAB_DATA_DIR
+    if ON_COLAB
+    else ROOT_DIR / "dataset"
+)
+DEFAULT_OUT_DIR = (
+    Path("/kaggle/working")
+    if ON_KAGGLE
+    else COLAB_OUT_DIR
+    if ON_COLAB
+    else ROOT_DIR / "artifacts"
+)
+DATA_DIR = Path(os.environ.get("FAIRFACE_DATA_DIR", DEFAULT_DATA_DIR))
+OUT_DIR = Path(os.environ.get("FAIRFACE_OUT_DIR", DEFAULT_OUT_DIR))
+SPLIT_DIR = Path(os.environ.get("FAIRFACE_SPLIT_DIR", OUT_DIR / "splits"))
+NUM_WORKERS = int(
+    os.environ.get(
+        "FAIRFACE_NUM_WORKERS",
+        (min(os.cpu_count() or 1, 4) if ON_KAGGLE or ON_COLAB else 0),
+    )
+)
 IMG_SIZE = 224
 BATCH = 32
 SEED = 42

@@ -1,0 +1,8 @@
+# Google Colab already provides torch, torchvision, numpy, pillow and pandas.
+# Install only project dependencies to keep the runtime's CUDA build intact.
+scikit-learn
+matplotlib
+seaborn
+gradio
+pytorch-grad-cam
+opencv-python-headless
