@@ -25,12 +25,17 @@ def run_epoch(
     optimizer: Any = None,
     scaler: Any = None,
     amp: bool = True,
+    phase: str = "train",
+    epoch: int | None = None,
 ) -> dict:
     training = optimizer is not None
     model.train(training)
     predictions, targets, losses = [], [], []
     use_amp = amp and device.type == "cuda"
-    for images, labels in loader:
+    total_batches = len(loader)
+    progress_interval = max(1, total_batches // 10)
+    started = time.perf_counter()
+    for batch_index, (images, labels) in enumerate(loader, 1):
         images, labels = images.to(device), labels.to(device)
         if training:
             optimizer.zero_grad(set_to_none=True)
@@ -48,6 +53,19 @@ def run_epoch(
         losses.append(loss.item() * len(labels))
         predictions.extend(logits.detach().argmax(1).cpu().tolist())
         targets.extend(labels.cpu().tolist())
+        if (
+            batch_index == 1
+            or batch_index % progress_interval == 0
+            or batch_index == total_batches
+        ):
+            LOGGER.info(
+                "progress phase=%s epoch=%s batch=%s/%s elapsed=%.1fs",
+                phase,
+                epoch if epoch is not None else "-",
+                batch_index,
+                total_batches,
+                time.perf_counter() - started,
+            )
     return {
         "loss": sum(losses) / max(1, len(targets)),
         "acc": accuracy_score(targets, predictions),
@@ -73,6 +91,17 @@ def fit(
     checkpoint = out_dir / "last.pth"
     history: list[dict] = []
     start, best, stale = 0, float("-inf"), 0
+    stage_started = time.perf_counter()
+    initial_history_length = 0
+    LOGGER.info(
+        "stage_start stage=%s device=%s epochs=%s train_batches=%s val_batches=%s resume=%s",
+        tag,
+        device,
+        exp.stage2_epochs,
+        len(loaders[0]),
+        len(loaders[1]),
+        resume,
+    )
     if resume and checkpoint.exists():
         state = torch.load(checkpoint, map_location=device)
         model.load_state_dict(state["model"])
@@ -84,13 +113,36 @@ def fit(
             state["best_metric"],
             state.get("history", []),
         )
+        initial_history_length = len(history)
     for epoch in range(start, exp.stage2_epochs):
         started = time.perf_counter()
+        LOGGER.info(
+            "epoch_start stage=%s epoch=%s/%s lr=%s",
+            tag,
+            epoch + 1,
+            exp.stage2_epochs,
+            optimizer.param_groups[0]["lr"],
+        )
         train_metrics = run_epoch(
-            model, loaders[0], criterion, device, optimizer=optimizer, amp=True
+            model,
+            loaders[0],
+            criterion,
+            device,
+            optimizer=optimizer,
+            amp=True,
+            phase="train",
+            epoch=epoch + 1,
         )
         with torch.no_grad():
-            val_metrics = run_epoch(model, loaders[1], criterion, device, amp=False)
+            val_metrics = run_epoch(
+                model,
+                loaders[1],
+                criterion,
+                device,
+                amp=False,
+                phase="val",
+                epoch=epoch + 1,
+            )
         if scheduler is not None:
             scheduler.step()
         metric = (
@@ -148,6 +200,12 @@ def fit(
         )
         if stale >= exp.patience:
             break
+    LOGGER.info(
+        "stage_end stage=%s completed_epochs=%s total_elapsed=%.1fs",
+        tag,
+        len(history) - initial_history_length,
+        time.perf_counter() - stage_started,
+    )
     return history
 
 
@@ -170,11 +228,27 @@ def main() -> None:
             **{**exp.to_dict(), "stage1_epochs": epochs, "stage2_epochs": epochs}
         )
     output = args.out_dir / exp.name
+    LOGGER.info(
+        "experiment_start name=%s arch=%s pretrained=%s smoke=%s data_dir=%s",
+        exp.name,
+        exp.arch,
+        exp.pretrained and not args.smoke,
+        args.smoke,
+        args.data_dir,
+    )
+    LOGGER.info("model_start arch=%s weights_path=%s", exp.arch, args.weights_path)
     model = build_model(
         exp.arch, exp.pretrained and not args.smoke, weights_path=args.weights_path
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    LOGGER.info(
+        "model_ready device=%s model_device=%s total_params=%s trainable_params=%s",
+        device,
+        next(model.parameters()).device,
+        count_params(model)[0],
+        count_params(model)[1],
+    )
     cfg = SimpleNamespace(
         data_dir=args.data_dir,
         split_dir=args.split_dir,
@@ -185,11 +259,24 @@ def main() -> None:
     )
     loaders = make_loaders(cfg, smoke=args.smoke)
     train_df, _, _ = load_splits(args.data_dir, args.split_dir, config.SEED)
+    LOGGER.info(
+        "data_ready train=%s val=%s test=%s train_batches=%s val_batches=%s workers=%s batch=%s",
+        len(loaders[0].dataset),
+        len(loaders[1].dataset),
+        len(loaders[2].dataset),
+        len(loaders[0]),
+        len(loaders[1]),
+        config.NUM_WORKERS if not args.smoke else 0,
+        config.BATCH if not args.smoke else 8,
+    )
     criterion = nn.CrossEntropyLoss(
         weight=class_weights(train_df).to(device) if exp.use_class_weights else None
     )
     history: list[dict] = []
     if exp.stage1_epochs:
+        LOGGER.info(
+            "stage_config stage=stage1 epochs=%s train_mode=head", exp.stage1_epochs
+        )
         set_trainable(model, "head")
         if exp.freeze_bn_stage1:
             freeze_bn(model)
@@ -214,6 +301,11 @@ def main() -> None:
         if best_stage1.exists():
             model.load_state_dict(torch.load(best_stage1, map_location=device)["model"])
     if exp.stage2_epochs:
+        LOGGER.info(
+            "stage_config stage=stage2 epochs=%s train_mode=%s",
+            exp.stage2_epochs,
+            exp.unfreeze,
+        )
         optimizer = torch.optim.Adam(
             param_groups(model, exp.unfreeze, exp.lr_backbone, exp.lr_head)
         )
