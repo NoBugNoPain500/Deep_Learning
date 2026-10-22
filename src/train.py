@@ -25,11 +25,14 @@ def run_epoch(
     optimizer: Any = None,
     scaler: Any = None,
     amp: bool = True,
+    freeze_bn_enabled: bool = False,
     phase: str = "train",
     epoch: int | None = None,
 ) -> dict:
     training = optimizer is not None
     model.train(training)
+    if training and freeze_bn_enabled:
+        freeze_bn(model)
     predictions, targets, losses = [], [], []
     use_amp = amp and device.type == "cuda"
     total_batches = len(loader)
@@ -93,6 +96,8 @@ def fit(
     start, best, stale = 0, float("-inf"), 0
     stage_started = time.perf_counter()
     initial_history_length = 0
+    use_amp = torch.cuda.is_available() and device.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     LOGGER.info(
         "stage_start stage=%s device=%s epochs=%s train_batches=%s val_batches=%s resume=%s",
         tag,
@@ -129,7 +134,9 @@ def fit(
             criterion,
             device,
             optimizer=optimizer,
+            scaler=scaler,
             amp=True,
+            freeze_bn_enabled=exp.freeze_bn_stage1,
             phase="train",
             epoch=epoch + 1,
         )
@@ -280,6 +287,11 @@ def main() -> None:
         set_trainable(model, "head")
         if exp.freeze_bn_stage1:
             freeze_bn(model)
+        LOGGER.info(
+            "stage_params stage=stage1 train_mode=head total_params=%s trainable_params=%s",
+            count_params(model)[0],
+            count_params(model)[1],
+        )
         optimizer = torch.optim.Adam(
             (p for p in model.parameters() if p.requires_grad), lr=exp.stage1_lr
         )
