@@ -1,16 +1,1 @@
-import os
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-ON_KAGGLE = Path("/kaggle/input").exists()
-KAGGLE_DATA_DIR = Path("/kaggle/input/fairface")
-DATA_DIR = KAGGLE_DATA_DIR if ON_KAGGLE else ROOT_DIR / "dataset"
-OUT_DIR = Path("/kaggle/working") if ON_KAGGLE else ROOT_DIR / "artifacts"
-SPLIT_DIR = OUT_DIR / "splits" if ON_KAGGLE else ROOT_DIR / "splits"
-NUM_WORKERS = (os.cpu_count() or 1) if ON_KAGGLE else 0
-IMG_SIZE = 224
-BATCH = 32
-SEED = 42
-CLASSES = ["Male", "Female"]
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
+{"metadata":{"kernelspec":{"language":"python","display_name":"Python 3","name":"python3"},"language_info":{"pygments_lexer":"ipython3","nbconvert_exporter":"python","version":"3.6.4","file_extension":".py","codemirror_mode":{"name":"ipython","version":3},"name":"python","mimetype":"text/x-python"},"kaggle":{"accelerator":"nvidiaTeslaT4","dataSources":[{"sourceType":"datasetVersion","sourceId":8231738}],"isInternetEnabled":true,"language":"python","sourceType":"notebook","isGpuEnabled":false}},"nbformat_minor":4,"nbformat":4,"cells":[{"cell_type":"code","source":"import os\nfrom pathlib import Path\n\nROOT_DIR = Path(__file__).resolve().parents[1]\nON_KAGGLE = Path(\"/kaggle/input\").exists()\nKAGGLE_DATA_DIR = Path(\"/kaggle/input/fairface\")\nDATA_DIR = KAGGLE_DATA_DIR if ON_KAGGLE else ROOT_DIR / \"dataset\"\nOUT_DIR = Path(\"/kaggle/working\") if ON_KAGGLE else ROOT_DIR / \"artifacts\"\nSPLIT_DIR = OUT_DIR / \"splits\" if ON_KAGGLE else ROOT_DIR / \"splits\"\nNUM_WORKERS = NUM_WORKERS = 2 if ON_KAGGLE else 0\nIMG_SIZE = 224\nBATCH = 32\nSEED = 42\nCLASSES = [\"Male\", \"Female\"]\nIMAGENET_MEAN = [0.485, 0.456, 0.406]\nIMAGENET_STD = [0.229, 0.224, 0.225]","metadata":{"_uuid":"4ddb26ec-7548-4459-bfce-d98a9794ca86","_cell_guid":"2e17d0ce-e97d-4f5e-b239-9e426826a326","trusted":true,"collapsed":false,"jupyter":{"outputs_hidden":false}},"outputs":[],"execution_count":null}]}
